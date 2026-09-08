@@ -3,16 +3,13 @@ const express = require('express');
 const app = express();
 const PORT = 3000;
 
-// Middleware для парсинга тела запроса в формате JSON
 app.use(express.json());
 
-// Логирование входящих запросов в консоль (удобно при разработке)
 app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
   next();
 });
 
-// Начальные данные (товары интернет-магазина) в памяти сервера
 let products = [
   { id: 1, title: 'Ноутбук Lenovo IdeaPad', price: 55000, category: 'Электроника', inStock: true },
   { id: 2, title: 'Беспроводная мышь Logitech', price: 2500, category: 'Аксессуары', inStock: true },
@@ -20,14 +17,10 @@ let products = [
   { id: 4, title: 'Монитор LG UltraGear 27"', price: 24000, category: 'Электроника', inStock: true }
 ];
 
-// Переменная для генерации нового ID
 let nextId = 5;
 
-// ==========================================
-// МАРШРУТЫ (CRUD для товаров)
-// ==========================================
 
-// 1. GET /products — Получение всех товаров
+// 1. GET /products 
 app.get('/products', (req, res) => {
   res.status(200).json({
     success: true,
@@ -36,7 +29,7 @@ app.get('/products', (req, res) => {
   });
 });
 
-// 2. GET /products/:id — Получение товара по ID
+// 2. GET /products/:id 
 app.get('/products/:id', (req, res) => {
   const id = parseInt(req.params.id, 10);
 
@@ -52,7 +45,7 @@ app.get('/products/:id', (req, res) => {
   if (!product) {
     return res.status(404).json({
       success: false,
-      error: `Товар с ID ${id} не найден`
+      error: `Товар c ID ${id} не найден`
     });
   }
 
@@ -62,11 +55,10 @@ app.get('/products/:id', (req, res) => {
   });
 });
 
-// 3. POST /products — Создание нового товара
+// 3. POST /products 
 app.post('/products', (req, res) => {
   const { title, price, category, inStock } = req.body;
 
-  // Валидация входных данных (статус 400 при ошибке)
   if (!title || price === undefined) {
     return res.status(400).json({
       success: false,
@@ -91,7 +83,6 @@ app.post('/products', (req, res) => {
 
   products.push(newProduct);
 
-  // Возвращаем статус 201 (Created)
   res.status(201).json({
     success: true,
     message: 'Товар успешно добавлен',
@@ -99,7 +90,7 @@ app.post('/products', (req, res) => {
   });
 });
 
-// 4. PUT /products/:id — Полное обновление товара
+// 4. PUT /products/:id
 app.put('/products/:id', (req, res) => {
   const id = parseInt(req.params.id, 10);
 
@@ -115,17 +106,16 @@ app.put('/products/:id', (req, res) => {
   if (index === -1) {
     return res.status(404).json({
       success: false,
-      error: `Товар с ID ${id} не найден`
+      error: `Товар c ID ${id} не найден`
     });
   }
 
   const { title, price, category, inStock } = req.body;
 
-  // Валидация данных для PUT
   if (!title || price === undefined || category === undefined || inStock === undefined) {
     return res.status(400).json({
       success: false,
-      error: 'Для полного обновления (PUT) передайте все поля: title, price, category, inStock'
+      error: 'Для полного обновления передайте все поля: title, price, category, inStock'
     });
   }
 
@@ -136,7 +126,6 @@ app.put('/products/:id', (req, res) => {
     });
   }
 
-  // Обновление объекта
   products[index] = {
     id,
     title: String(title).trim(),
@@ -152,7 +141,7 @@ app.put('/products/:id', (req, res) => {
   });
 });
 
-// 5. DELETE /products/:id — Удаление товара
+// 5. DELETE /products/:id 
 app.delete('/products/:id', (req, res) => {
   const id = parseInt(req.params.id, 10);
 
@@ -168,7 +157,7 @@ app.delete('/products/:id', (req, res) => {
   if (index === -1) {
     return res.status(404).json({
       success: false,
-      error: `Товар с ID ${id} не найден`
+      error: `Товар c ID ${id} не найден`
     });
   }
 
@@ -181,11 +170,7 @@ app.delete('/products/:id', (req, res) => {
   });
 });
 
-// ==========================================
-// ОБРАБОТКА НЕИЗВЕСТНЫХ МАРШРУТОВ И ОШИБОК
-// ==========================================
-
-// Обработка запросов на несуществующие эндпоинты (404)
+// Обработка запросов на несуществующие эндпоинты 
 app.use((req, res) => {
   res.status(404).json({
     success: false,
@@ -193,7 +178,7 @@ app.use((req, res) => {
   });
 });
 
-// Глобальный обработчик внутренних ошибок (500)
+// Глобальный обработчик внутренних ошибок 
 app.use((err, req, res, next) => {
   console.error('Необработанная ошибка:', err.stack);
   res.status(500).json({
@@ -202,7 +187,6 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Запуск сервера
 app.listen(PORT, () => {
   console.log(`Сервер запущен на http://localhost:${PORT}`);
 });
