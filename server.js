@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const { sequelize } = require('./models');
 const productRoutes = require('./routes/productRoutes');
+const authRoutes = require('./routes/authRoutes'); // <-- 1. Подключаем маршруты аутентификации
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -13,6 +14,8 @@ app.use((req, res, next) => {
   next();
 });
 
+// Маршруты приложения
+app.use('/auth', authRoutes);       // <-- 2. Регистрируем /auth
 app.use('/products', productRoutes);
 
 app.use((req, res) => {
@@ -21,7 +24,6 @@ app.use((req, res) => {
     error: `Маршрут ${req.originalUrl} не существует`
   });
 });
-
 
 app.use((err, req, res, next) => {
   console.error('Необработанная ошибка:', err);
