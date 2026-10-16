@@ -2,7 +2,7 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { User } = require('../models');
 
-// 1. Регистрация (POST /auth/register)
+// POST /auth/register
 exports.register = async (req, res, next) => {
   try {
     const { email, password, role } = req.body;
@@ -21,19 +21,16 @@ exports.register = async (req, res, next) => {
       });
     }
 
-    // Проверка уникальности email
     const existingUser = await User.findOne({ where: { email: email.trim().toLowerCase() } });
     if (existingUser) {
       return res.status(400).json({
         success: false,
-        error: 'Пользователь с таким email уже зарегистрирован'
+        error: 'Пользователь c таким email уже зарегистрирован'
       });
     }
 
-    // Хеширование пароля (соль 10 раундов)
     const passwordHash = await bcrypt.hash(password, 10);
 
-    // Разрешаем передать 'admin', иначе по умолчанию 'user'
     const userRole = role === 'admin' ? 'admin' : 'user';
 
     const newUser = await User.create({
@@ -57,7 +54,7 @@ exports.register = async (req, res, next) => {
   }
 };
 
-// 2. Вход в систему (POST /auth/login)
+// POST /auth/login
 exports.login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
@@ -77,7 +74,6 @@ exports.login = async (req, res, next) => {
       });
     }
 
-    // Сравнение пароля с хешем
     const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
     if (!isPasswordValid) {
       return res.status(401).json({
@@ -86,7 +82,6 @@ exports.login = async (req, res, next) => {
       });
     }
 
-    // Генерация JWT
     const token = jwt.sign(
       { id: user.id, email: user.email, role: user.role },
       process.env.JWT_SECRET || 'default_secret',
@@ -108,12 +103,11 @@ exports.login = async (req, res, next) => {
   }
 };
 
-// 3. Получение профиля текущего пользователя (GET /auth/profile)
+//GET /auth/profile
 exports.getProfile = async (req, res, next) => {
   try {
-    // req.user берется из middleware authenticateToken
     const user = await User.findByPk(req.user.id, {
-      attributes: { exclude: ['passwordHash'] } // не отдаем хеш пароля клиенту
+      attributes: { exclude: ['passwordHash'] } 
     });
 
     if (!user) {
