@@ -1,0 +1,15 @@
+<%- include('partials/header') %>
+
+<div class="card" style="max-width: 600px; margin: 40px auto; border-top: 4px solid #e53e3e;">
+  <h1 style="font-size: 56px; color: #e53e3e; line-height: 1;">500</h1>
+  <h2 style="margin: 10px 0;">Внутренняя ошибка сервера</h2>
+  <p style="color: #4a5568; margin-bottom: 16px;">На сервере произошел непредвиденный сбой. Мы уже зарегистрировали эту ошибку в логах.</p>
+
+  <div style="background: #2d3748; color: #feb2b2; padding: 12px; border-radius: 6px; font-family: monospace; font-size: 13px; word-break: break-all; margin-bottom: 20px;">
+    <%= error.message %>
+  </div>
+
+  <a href="/?auth=<%= user.isAuth ? '1' : '0' %>" class="btn btn-primary">Вернуться на главную</a>
+</div>
+
+<%- include('partials/footer') %>

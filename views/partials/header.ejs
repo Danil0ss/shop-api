@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title %> | Online Shop</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background-color: #f4f6f9; color: #2d3748; min-height: 100vh; display: flex; flex-direction: column; }
+    
+    /* ТРЕБОВАНИЕ: ЗАКРЕПЛЕННЫЙ ХЕДЕР */
+    header.sticky-header {
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      background: #1a202c;
+      color: #fff;
+      padding: 14px 30px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+    }
+    
+    .nav-brand { font-size: 20px; font-weight: bold; color: #63b3ed; text-decoration: none; }
+    .nav-links { display: flex; gap: 15px; align-items: center; }
+    .nav-links a { color: #edf2f7; text-decoration: none; padding: 6px 12px; border-radius: 6px; transition: 0.2s; font-size: 14px; }
+    .nav-links a:hover { background: #2d3748; }
+    .user-badge { background: #4a5568; padding: 4px 10px; border-radius: 12px; font-size: 12px; color: #cbd5e0; }
+    .cart-badge { background: #e53e3e; color: #fff; padding: 2px 7px; border-radius: 10px; font-weight: bold; }
+    
+    main.container { max-width: 1050px; margin: 30px auto; padding: 0 20px; flex: 1; width: 100%; }
+    .card { background: white; border-radius: 10px; padding: 24px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 20px; }
+    .btn { display: inline-block; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-size: 14px; cursor: pointer; border: none; font-weight: 500; }
+    .btn-primary { background: #3182ce; color: #fff; }
+    .btn-primary:hover { background: #2b6cb0; }
+    .btn-success { background: #38a169; color: #fff; }
+    .btn-danger { background: #e53e3e; color: #fff; }
+    .badge-time { font-size: 11px; color: #718096; background: #edf2f7; padding: 3px 6px; border-radius: 4px; }
+  </style>
+</head>
+<body>
+
+<header class="sticky-header">
+  <a href="/?auth=<%= user.isAuth ? '1' : '0' %>" class="nav-brand">🛒 TechShop</a>
+  <div class="nav-links">
+    <a href="/?auth=<%= user.isAuth ? '1' : '0' %>">Каталог</a>
+    <a href="/add?auth=<%= user.isAuth ? '1' : '0' %>">+ Добавить товар</a>
+    <a href="/trigger-500">Тест ошибки 500</a>
+    <span class="user-badge">👤 <%= user.name %></span>
+    <% if (user.isAuth) { %>
+      <a href="/?auth=0" style="color: #feb2b2;">Выйти</a>
+    <% } else { %>
+      <a href="/login" class="btn btn-primary" style="padding: 4px 8px;">Войти </a>
+    <% } %>
+    <a href="/cart?auth=<%= user.isAuth ? '1' : '0' %>" title="Перейти в корзину" style="text-decoration: none; display: flex; align-items: center; gap: 4px;">
+        🛒 Корзина <span class="cart-badge"><%= cartCount %></span>
+    </a>
+  </div>
+</header>
+
+<main class="container">

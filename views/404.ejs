@@ -1,0 +1,10 @@
+<%- include('partials/header') %>
+
+<div class="card" style="max-width: 500px; margin: 40px auto; text-align: center;">
+  <h1 style="font-size: 64px; color: #e53e3e; line-height: 1;">404</h1>
+  <h3 style="margin: 12px 0;">Страница не найдена</h3>
+  <p style="color: #718096; margin-bottom: 20px;"><%= typeof message !== 'undefined' ? message : 'Запрашиваемый ресурс не существует.' %></p>
+  <a href="/?auth=<%= user.isAuth ? '1' : '0' %>" class="btn btn-primary">Вернуться в магазин</a>
+</div>
+
+<%- include('partials/footer') %>

@@ -1,0 +1,21 @@
+<%- include('partials/header') %>
+
+<div class="card" style="max-width: 650px; margin: 0 auto;">
+  <a href="/?auth=<%= user.isAuth ? '1' : '0' %>" style="color: #718096; text-decoration: none; font-size: 13px;">← Назад в каталог</a>
+  <h2 style="margin-top: 14px; margin-bottom: 8px;"><%= product.title %></h2>
+  <p><span class="badge-time">Артикул/ID: <%= product.id %> | Категория: <%= product.category %></span></p>
+  
+  <p style="margin: 16px 0; color: #4a5568; line-height: 1.6;"><%= product.description %></p>
+
+  <div style="background: #edf2f7; padding: 14px; border-radius: 8px; margin-bottom: 20px;">
+    <p><strong>Стоимость:</strong> <span style="font-size: 20px; color: #2b6cb0; font-weight: bold;"><%= product.price %> BYN</span></p>
+    <p><strong>Остаток на складе:</strong> <%= product.stockQuantity %> шт.</p>
+    <p style="margin-top: 6px;"><strong>Время создания карточки:</strong> <span class="badge-time"><%= product.createdAt %></span></p>
+  </div>
+
+  <form action="/cart/add/<%= product.id %>?auth=<%= user.isAuth ? '1' : '0' %>" method="POST">
+    <button type="submit" class="btn btn-success" style="width: 100%; padding: 10px;">Добавить данный товар в корзину</button>
+  </form>
+</div>
+
+<%- include('partials/footer') %>
