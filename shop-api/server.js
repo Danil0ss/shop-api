@@ -1,12 +1,14 @@
 require('dotenv').config();
 const express = require('express');
+const cors = require('cors'); // <-- 1. Подключаем CORS
 const { sequelize } = require('./models');
 const productRoutes = require('./routes/productRoutes');
-const authRoutes = require('./routes/authRoutes'); // <-- 1. Подключаем маршруты аутентификации
+const authRoutes = require('./routes/authRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+app.use(cors()); // <-- 2. Разрешаем кросс-доменные запросы с фронтенда
 app.use(express.json());
 
 app.use((req, res, next) => {
@@ -15,7 +17,7 @@ app.use((req, res, next) => {
 });
 
 // Маршруты приложения
-app.use('/auth', authRoutes);       // <-- 2. Регистрируем /auth
+app.use('/auth', authRoutes);
 app.use('/products', productRoutes);
 
 app.use((req, res) => {

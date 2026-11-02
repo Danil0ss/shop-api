@@ -1,18 +1,32 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Header from './components/Header/Header';
 import StatsBar from './components/StatsBar/StatsBar';
 import ProductForm from './components/ProductForm/ProductForm';
 import FilterBar from './components/FilterBar/FilterBar';
 import ProductTable from './components/ProductTable/ProductTable';
-import { INITIAL_PRODUCTS } from './data/initialProducts';
+import {
+  fetchProducts,
+  addProductApi,
+  updateProductApi,
+  deleteProductApi,
+  loginApi
+} from './api';
 import './App.css';
 
 export default function App() {
-  // 1. Хранение массива товаров
+  // 1. Состояния данных и запросов
   const [products, setProducts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [notification, setNotification] = useState(null);
 
-  // 2. Хранение полей формы ввода
+  // 2. Аутентификация пользователя (для прав администратора на POST/PUT/DELETE)
+  const [user, setUser] = useState(() => {
+    const saved = localStorage.getItem('user');
+    return saved ? JSON.parse(saved) : null;
+  });
+
+  // 3. Форма добавления/редактирования
   const [formData, setFormData] = useState({
     title: '',
     price: '',
@@ -22,89 +36,178 @@ export default function App() {
   });
   const [editingId, setEditingId] = useState(null);
 
-  // 3. Состояния поиска, фильтра и сортировки
+  // 4. Поиск, фильтры и сортировка
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Все');
   const [sortBy, setSortBy] = useState('none');
 
-  // 4. Статус сохранения
-  const [saveStatus, setSaveStatus] = useState('Сохранено');
+  // Вспомогательная функция для всплывающих уведомлений об ошибках/успехе
+  const showNotice = (message, isError = false) => {
+    setNotification({ message, isError });
+    setTimeout(() => setNotification(null), 4000);
+  };
 
-  // ЭФФЕКТ 1: Загрузка из localStorage с имитацией задержки сервера
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      const saved = localStorage.getItem('shop_products');
-      if (saved) {
-        try {
-          setProducts(JSON.parse(saved));
-        } catch {
-          setProducts(INITIAL_PRODUCTS);
-        }
-      } else {
-        setProducts(INITIAL_PRODUCTS);
+  // --- ПОЛУЧЕНИЕ ТОВАРОВ С СЕРВЕРА (GET) + ABORT CONTROLLER + RETRY (ДОП. УЛУЧШЕНИЕ) ---
+  const loadProducts = useCallback(async (signal, retries = 2) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await fetchProducts(signal);
+      if (response.data && response.data.data) {
+        setProducts(response.data.data);
       }
+    } catch (err) {
+      if (err.name === 'CanceledError' || err.code === 'ERR_CANCELED') {
+        // Запрос был отменен через AbortController при размонтировании
+        return;
+      }
+      if (retries > 0) {
+        console.warn(`Ошибка загрузки. Повторная попытка... Осталось попыток: ${retries}`);
+        setTimeout(() => loadProducts(signal, retries - 1), 1000);
+        return;
+      }
+      setError(err.response?.data?.error || err.message || 'Ошибка подключения к серверу');
+    } finally {
       setIsLoading(false);
-    }, 800);
-
-    return () => clearTimeout(timer);
+    }
   }, []);
 
-  // ЭФФЕКТ 2: Debounce автосохранение в localStorage (500 мс)
   useEffect(() => {
-    if (isLoading) return;
+    const controller = new AbortController();
+    loadProducts(controller.signal);
 
-    setSaveStatus('Сохранение...');
-    const timer = setTimeout(() => {
-      localStorage.setItem('shop_products', JSON.stringify(products));
-      setSaveStatus('Все изменения сохранены');
-    }, 500);
+    // Отмена запроса при размонтировании компонента (Часть 5)
+    return () => {
+      controller.abort();
+    };
+  }, [loadProducts]);
 
-    return () => clearTimeout(timer);
-  }, [products, isLoading]);
-
-  // ЭФФЕКТ 3: Изменение заголовка страницы в зависимости от количества товаров
   useEffect(() => {
     document.title = `Каталог товаров (${products.length}) | Магазин`;
   }, [products]);
 
-  // Обработчик отправки формы
-  const handleSubmit = (e) => {
+  // --- ДОБАВЛЕНИЕ И РЕДАКТИРОВАНИЕ (POST / PUT) С ОПТИМИСТИЧНЫМ ОБНОВЛЕНИЕМ ---
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.title.trim() || !formData.price) return;
 
     const priceNum = parseFloat(formData.price);
     const stockNum = parseInt(formData.stockQuantity, 10) || 0;
-    // Если остаток > 0, статус автоматически "В наличии"
     const inStockStatus = stockNum > 0 ? (formData.inStock ?? true) : false;
 
+    const payload = {
+      title: formData.title.trim(),
+      price: priceNum,
+      category: formData.category,
+      stockQuantity: stockNum,
+      inStock: inStockStatus
+    };
+
+    // --- РЕДАКТИРОВАНИЕ (PUT) ---
     if (editingId !== null) {
+      const originalProduct = products.find((p) => p.id === editingId);
+      if (!originalProduct) return;
+
+      // 1. Оптимистично обновляем UI
       setProducts((prev) =>
-        prev.map((item) =>
-          item.id === editingId
-            ? {
-                ...item,
-                title: formData.title.trim(),
-                price: priceNum,
-                category: formData.category,
-                stockQuantity: stockNum,
-                inStock: inStockStatus
-              }
-            : item
-        )
+        prev.map((item) => (item.id === editingId ? { ...item, ...payload } : item))
       );
       setEditingId(null);
-    } else {
-      const newProduct = {
-        id: Date.now(),
-        title: formData.title.trim(),
-        price: priceNum,
-        category: formData.category,
-        stockQuantity: stockNum,
-        inStock: inStockStatus
-      };
-      setProducts((prev) => [newProduct, ...prev]);
-    }
+      resetForm();
 
+      try {
+        // 2. Отправляем запрос на сервер
+        const res = await updateProductApi(originalProduct.id, payload);
+        // Заменяем данными ответа сервера (на случай если сервер добавил свои поля)
+        setProducts((prev) =>
+          prev.map((item) => (item.id === originalProduct.id ? res.data.data : item))
+        );
+        showNotice('Товар успешно обновлен');
+      } catch (err) {
+        // 3. Откат к исходному состоянию при ошибке
+        setProducts((prev) =>
+          prev.map((item) => (item.id === originalProduct.id ? originalProduct : item))
+        );
+        showNotice(err.response?.data?.error || 'Не удалось обновить товар. Изменения отменены.', true);
+      }
+    } else {
+      // --- ДОБАВЛЕНИЕ (POST) ---
+      const tempId = `temp-${Date.now()}`;
+      const optimisticProduct = { ...payload, id: tempId };
+
+      // 1. Оптимистично добавляем элемент в список
+      setProducts((prev) => [optimisticProduct, ...prev]);
+      resetForm();
+
+      try {
+        // 2. Отправляем POST запрос
+        const res = await addProductApi(payload);
+        const serverProduct = res.data.data;
+        // 3. Заменяем временный ID на реальный из ответа БД
+        setProducts((prev) =>
+          prev.map((item) => (item.id === tempId ? serverProduct : item))
+        );
+        showNotice('Товар успешно добавлен');
+      } catch (err) {
+        // 4. При ошибке убираем добавленный элемент
+        setProducts((prev) => prev.filter((item) => item.id !== tempId));
+        showNotice(err.response?.data?.error || 'Ошибка при добавлении товара на сервер', true);
+      }
+    }
+  };
+
+  // --- УДАЛЕНИЕ (DELETE) С ОПТИМИСТИЧНЫМ ОБНОВЛЕНИЕМ ---
+  const handleDelete = async (id) => {
+    if (!window.confirm('Удалить данный товар?')) return;
+
+    const previousProducts = [...products];
+    const deletedProduct = products.find((p) => p.id === id);
+
+    // 1. Оптимистично убираем элемент из UI
+    setProducts((prev) => prev.filter((p) => p.id !== id));
+    if (editingId === id) handleCancelEdit();
+
+    try {
+      // 2. Запрос на сервер
+      await deleteProductApi(id);
+      showNotice(`Товар "${deletedProduct?.title || ''}" успешно удален`);
+    } catch (err) {
+      // 3. Откат к предыдущему списку при ошибке
+      setProducts(previousProducts);
+      showNotice(err.response?.data?.error || 'Ошибка при удалении товара. Товар возвращен.', true);
+    }
+  };
+
+  // --- ОПТИМИСТИЧНОЕ ПЕРЕКЛЮЧЕНИЕ СТАТУСА НАЛИЧИЯ (PUT) ---
+  const handleToggleStock = async (id) => {
+    const target = products.find((p) => p.id === id);
+    if (!target) return;
+
+    const previousProducts = [...products];
+    const updatedStatus = !target.inStock;
+
+    // 1. Оптимистично меняем статус
+    setProducts((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, inStock: updatedStatus } : item))
+    );
+
+    try {
+      // 2. Запрос на сервер
+      await updateProductApi(id, {
+        title: target.title,
+        price: target.price,
+        category: target.category,
+        stockQuantity: target.stockQuantity,
+        inStock: updatedStatus
+      });
+    } catch (err) {
+      // 3. Откат при ошибке
+      setProducts(previousProducts);
+      showNotice('Ошибка обновления статуса наличия', true);
+    }
+  };
+
+  const resetForm = () => {
     setFormData({
       title: '',
       price: '',
@@ -123,38 +226,38 @@ export default function App() {
       stockQuantity: product.stockQuantity,
       inStock: product.inStock
     });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleCancelEdit = () => {
     setEditingId(null);
-    setFormData({
-      title: '',
-      price: '',
-      category: 'Периферия',
-      stockQuantity: '',
-      inStock: true
-    });
+    resetForm();
   };
 
-  const handleDelete = (id) => {
-    if (window.confirm('Удалить данный товар?')) {
-      setProducts((prev) => prev.filter((p) => p.id !== id));
-      if (editingId === id) handleCancelEdit();
+  // Вход для выполнения защищенных CRUD операций
+  const handleLogin = async (email, password) => {
+    try {
+      const res = await loginApi(email, password);
+      localStorage.setItem('token', res.data.token);
+      localStorage.setItem('user', JSON.stringify(res.data.user));
+      setUser(res.data.user);
+      showNotice(`Успешный вход: ${res.data.user.email} (${res.data.user.role})`);
+    } catch (err) {
+      showNotice(err.response?.data?.error || 'Ошибка входа', true);
     }
   };
 
-  const handleToggleStock = (id) => {
-    setProducts((prev) =>
-      prev.map((item) =>
-        item.id === id ? { ...item, inStock: !item.inStock } : item
-      )
-    );
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    setUser(null);
+    showNotice('Вы вышли из системы');
   };
 
-  // Фильтрация и сортировка списка
+  // Фильтрация и сортировка товаров
   const filteredProducts = products
     .filter((product) => {
-      const matchSearch = product.title.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchSearch = product.title?.toLowerCase().includes(searchQuery.toLowerCase());
       const matchCategory = selectedCategory === 'Все' || product.category === selectedCategory;
       return matchSearch && matchCategory;
     })
@@ -165,19 +268,70 @@ export default function App() {
       return 0;
     });
 
-  if (isLoading) {
+  // ЭКРАН ЗАГРУЗКИ (Loading state)
+  /*
+  if (isLoading && products.length === 0) {
     return (
       <div className="app-loader">
         <div className="loader-spinner"></div>
-        <p>Загрузка каталога товаров...</p>
+        <p>Загрузка каталога с сервера...</p>
       </div>
     );
   }
 
+  // ЭКРАН ОШИБКИ С КНОПКОЙ «ПОВТОРИТЬ» (Error state)
+  if (error && products.length === 0) {
+    return (
+      <div className="app-loader">
+        <div style={{ color: '#e74c3c', fontSize: '1.2rem', marginBottom: '15px' }}>
+          ⚠️ Ошибка загрузки: {error}
+        </div>
+        <button
+          className="btn btn-primary"
+          onClick={() => loadProducts()}
+          style={{ cursor: 'pointer', padding: '10px 20px' }}
+        >
+          🔄 Повторить запрос
+        </button>
+      </div>
+    );
+  }
+*/
   return (
     <div className="app-wrapper">
-      <Header saveStatus={saveStatus} />
+      <Header
+        user={user}
+        onLogin={handleLogin}
+        onLogout={handleLogout}
+      />
+
+      {/* Всплывающее уведомление об оптимистичном успехе / ошибке отката */}
+      {notification && (
+        <div
+          style={{
+            margin: '10px 0',
+            padding: '12px 18px',
+            borderRadius: '6px',
+            backgroundColor: notification.isError ? '#fde8e8' : '#e6fffa',
+            color: notification.isError ? '#c81e1e' : '#047481',
+            border: `1px solid ${notification.isError ? '#f8b4b4' : '#a2f5bf'}`,
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center'
+          }}
+        >
+          <span>{notification.message}</span>
+          <button
+            onClick={() => setNotification(null)}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       <StatsBar products={products} />
+
       <ProductForm
         formData={formData}
         setFormData={setFormData}
@@ -185,6 +339,7 @@ export default function App() {
         editingId={editingId}
         onCancel={handleCancelEdit}
       />
+
       <FilterBar
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
@@ -193,12 +348,32 @@ export default function App() {
         sortBy={sortBy}
         setSortBy={setSortBy}
       />
-      <ProductTable
-        products={filteredProducts}
-        onEdit={handleEdit}
-        onDelete={handleDelete}
-        onToggleStock={handleToggleStock}
-      />
+
+ {/* Область списка: отображает либо Загрузку, либо Ошибку, либо Таблицу */}
+      {isLoading ? (
+        <div style={{ textAlign: 'center', padding: '40px', color: '#2563eb', fontWeight: 600 }}>
+          <div className="loader-spinner" style={{ margin: '0 auto 12px' }}></div>
+          <span>Загрузка каталога с сервера...</span>
+        </div>
+      ) : error ? (
+        <div style={{ textAlign: 'center', padding: '30px', color: '#dc2626' }}>
+          <p style={{ marginBottom: '12px', fontWeight: 500 }}>Сервер недоступен: {error}</p>
+          <button 
+            type="button" 
+            className="btn btn-primary"
+            onClick={() => loadProducts()}
+          >
+            Повторить
+          </button>
+        </div>
+      ) : (
+        <ProductTable
+          products={filteredProducts}
+          onEdit={handleEdit}
+          onDelete={handleDelete}
+          onToggleStock={handleToggleStock}
+        />
+      )}
     </div>
   );
 }
