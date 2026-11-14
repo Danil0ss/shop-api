@@ -41,13 +41,12 @@ export default function App() {
   const [selectedCategory, setSelectedCategory] = useState('Все');
   const [sortBy, setSortBy] = useState('none');
 
-  // Вспомогательная функция для всплывающих уведомлений об ошибках/успехе
+
   const showNotice = (message, isError = false) => {
     setNotification({ message, isError });
     setTimeout(() => setNotification(null), 4000);
   };
 
-  // --- ПОЛУЧЕНИЕ ТОВАРОВ С СЕРВЕРА (GET) + ABORT CONTROLLER + RETRY (ДОП. УЛУЧШЕНИЕ) ---
   const loadProducts = useCallback(async (signal, retries = 2) => {
     setIsLoading(true);
     setError(null);
@@ -58,7 +57,7 @@ export default function App() {
       }
     } catch (err) {
       if (err.name === 'CanceledError' || err.code === 'ERR_CANCELED') {
-        // Запрос был отменен через AbortController при размонтировании
+
         return;
       }
       if (retries > 0) {
@@ -76,7 +75,6 @@ export default function App() {
     const controller = new AbortController();
     loadProducts(controller.signal);
 
-    // Отмена запроса при размонтировании компонента (Часть 5)
     return () => {
       controller.abort();
     };
@@ -268,35 +266,7 @@ export default function App() {
       return 0;
     });
 
-  // ЭКРАН ЗАГРУЗКИ (Loading state)
-  /*
-  if (isLoading && products.length === 0) {
-    return (
-      <div className="app-loader">
-        <div className="loader-spinner"></div>
-        <p>Загрузка каталога с сервера...</p>
-      </div>
-    );
-  }
 
-  // ЭКРАН ОШИБКИ С КНОПКОЙ «ПОВТОРИТЬ» (Error state)
-  if (error && products.length === 0) {
-    return (
-      <div className="app-loader">
-        <div style={{ color: '#e74c3c', fontSize: '1.2rem', marginBottom: '15px' }}>
-          ⚠️ Ошибка загрузки: {error}
-        </div>
-        <button
-          className="btn btn-primary"
-          onClick={() => loadProducts()}
-          style={{ cursor: 'pointer', padding: '10px 20px' }}
-        >
-          🔄 Повторить запрос
-        </button>
-      </div>
-    );
-  }
-*/
   return (
     <div className="app-wrapper">
       <Header
